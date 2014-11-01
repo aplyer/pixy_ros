@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8)
 project (libpixyusb CXX)
 
-set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake" )
+set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake" )
 set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_PATH} )
 set (Boost_USE_STATIC_LIBS OFF)
 set (Boost_USE_MULTITHREADED ON)
@@ -24,22 +24,22 @@ file(STRINGS "cmake/VERSION" LIBPIXY_VERSION)
 add_definitions(-D__LIBPIXY_VERSION__="${LIBPIXY_VERSION}")
 
 
-add_library (pixyusb STATIC src/chirpreceiver.cpp
-                            src/pixyinterpreter.cpp
-                            src/pixy.cpp
-                            src/usblink.cpp
-                            src/utils/timer.cpp
-                            ../../common/chirp.cpp)
+add_library (pixyusb src/chirpreceiver.cpp
+                     src/pixyinterpreter.cpp
+                     src/pixy.cpp
+                     src/usblink.cpp
+                     src/utils/timer.cpp
+                     common/chirp.cpp)
 
 set (THIS_LIB libpixyusb)
 
 include_directories (src
                      src/util
                      include
-                     ../../common
+                     common
                      ${Boost_INCLUDE_DIR}
                      ${LIBUSB_1_INCLUDE_DIRS})
 
-install (TARGETS pixyusb DESTINATION lib)
-install (FILES include/pixy.h DESTINATION include)
-install (FILES ../../common/pixydefs.h DESTINATION include)
+#install (TARGETS pixyusb DESTINATION lib)
+#install (FILES include/pixy.h DESTINATION include)
+#install (FILES ../../common/pixydefs.h DESTINATION include)

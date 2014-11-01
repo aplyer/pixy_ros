@@ -1,0 +1,130 @@
+/*
+ * pixy_node is part of the pixy_ros package for interfacing with
+ * a CMUcam5 pixy with ROS.
+ * Copyright (C) 2014 Justin Eskesen
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
+
+#include <ros/ros.h>
+#include <angles/angles.h>
+#include <tf/transform_broadcaster.h>
+#include <pixy_ros/PixyData.h>
+#include <pixy_ros/PixyBlock.h>
+
+#include "pixy.h"
+#define BLOCK_BUFFER_SIZE 100
+
+class PixyNode
+{
+public:
+	PixyNode();
+
+	void update();
+	void spin();
+
+private:
+
+	ros::NodeHandle node_handle_;
+	ros::NodeHandle private_node_handle_;
+
+	double rate_;
+
+	tf::TransformBroadcaster tf_broadcaster_;
+
+	ros::Publisher publisher_;
+	std::string frame_id;
+};
+
+PixyNode::PixyNode() :
+		node_handle_(), private_node_handle_("~")
+{
+
+	private_node_handle_.param<std::string>(std::string("frame_id"), frame_id,
+			std::string("pixy_frame"));
+	private_node_handle_.param("rate", rate_, 10.0);
+
+	int ret = pixy_init();
+	if (ret != 0)
+	{
+		ROS_FATAL("PixyNode - %s - Failed to open with the USB error %d!",
+				__FUNCTION__, ret);
+		ROS_BREAK();
+	}
+
+}
+
+void PixyNode::update()
+{
+
+	// Pixy Block buffer //
+	struct Block blocks[BLOCK_BUFFER_SIZE];
+
+	// Get blocks from Pixy //
+	int blocks_copied = pixy_get_blocks(BLOCK_BUFFER_SIZE, blocks);
+
+	if (blocks_copied > 0)
+	{
+		pixy_ros::PixyData data;
+		data.header.stamp = ros::Time::now();
+		for (int i = 0; i < blocks_copied; i++)
+		{
+			pixy_ros::PixyBlock pixy_block;
+			pixy_block.type = blocks[i].type;
+			pixy_block.signature = blocks[i].signature;
+			pixy_block.roi.x_offset = blocks[i].x;
+			pixy_block.roi.y_offset = blocks[i].y;
+			pixy_block.roi.height = blocks[i].height;
+			pixy_block.roi.width = blocks[i].width;
+			pixy_block.roi.do_rectify = false;
+			pixy_block.angle =
+					(pixy_block.type == TYPE_COLOR_CODE) ?
+							angles::from_degrees((double) blocks[i].angle) :
+							0.0;
+		}
+		// publish the message
+		publisher_.publish(data);
+	}
+	else if(blocks_copied < 0)
+	{
+		ROS_INFO("Pixy read error.");
+	}
+}
+
+void PixyNode::spin()
+{
+	ros::Rate r(50.0);
+	while (node_handle_.ok())
+	{
+		update();
+
+		ros::spinOnce();
+		r.sleep();
+	}
+}
+
+int main(int argc, char** argv)
+{
+	ros::init(argc, argv, "roomba_node");
+
+	ROS_INFO("PixyNode for ROS");
+
+	PixyNode myPixy;
+	myPixy.spin();
+
+	return (0);
+}
+
+// EOF

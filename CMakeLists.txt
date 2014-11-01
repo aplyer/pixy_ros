@@ -7,16 +7,22 @@ project(pixy_ros)
 find_package(catkin REQUIRED COMPONENTS
 	sensor_msgs
 	message_generation
+	roscpp
+	tf
 )
 
 ## System dependencies are found with CMake's conventions
-# find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED COMPONENTS thread system chrono)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
 ## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
 # catkin_python_setup()
+
+add_subdirectory(libpixyusb)
+set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${libpixyusb_SOURCE_DIR}/cmake" )
+find_package ( libusb-1.0 REQUIRED )
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -79,8 +85,8 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES pixy_ros
+#  INCLUDE_DIRS include libpixyusb/include libpixyusb/common
+  LIBRARIES pixyusb
   CATKIN_DEPENDS message_runtime sensor_msgs
 #  DEPENDS system_lib
 )
@@ -91,7 +97,7 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-# include_directories(include)
+include_directories(include libpixyusb/include libpixyusb/common  ${LIBUSB_1_INCLUDE_DIRS})
 
 ## Declare a cpp library
 # add_library(pixy_ros
@@ -99,16 +105,19 @@ catkin_package(
 # )
 
 ## Declare a cpp executable
-# add_executable(pixy_ros_node src/pixy_ros_node.cpp)
+add_executable(pixy_node src/pixy_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(pixy_ros_node pixy_ros_generate_messages_cpp)
+add_dependencies(pixy_node pixy_ros_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(pixy_ros_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(pixy_node
+  ${catkin_LIBRARIES}
+  pixyusb
+  ${Boost_LIBRARIES}
+  ${LIBUSB_1_LIBRARY}
+)
 
 #############
 ## Install ##
