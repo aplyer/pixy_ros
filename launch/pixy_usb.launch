@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+	
+	<node name="pixy_node" pkg="pixy_ros" type="pixy_node" output="screen">
+	</node>
+
+</launch>
