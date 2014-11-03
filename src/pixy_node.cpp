@@ -63,6 +63,8 @@ PixyNode::PixyNode() :
 				__FUNCTION__, ret);
 		ROS_BREAK();
 	}
+    publisher_ = node_handle_.advertise<pixy_ros::PixyData>("/pixy", 50.0);
+
 
 }
 
@@ -93,6 +95,8 @@ void PixyNode::update()
 					(pixy_block.type == TYPE_COLOR_CODE) ?
 							angles::from_degrees((double) blocks[i].angle) :
 							0.0;
+
+			data.blocks.push_back(pixy_block);
 		}
 		// publish the message
 		publisher_.publish(data);
@@ -117,7 +121,7 @@ void PixyNode::spin()
 
 int main(int argc, char** argv)
 {
-	ros::init(argc, argv, "roomba_node");
+	ros::init(argc, argv, "pixy_node");
 
 	ROS_INFO("PixyNode for ROS");
 
