@@ -23,6 +23,7 @@
 #include <tf/transform_broadcaster.h>
 #include <pixy_ros/PixyData.h>
 #include <pixy_ros/PixyBlock.h>
+#include <pixy_ros/Servo.h>
 
 #include "pixy.h"
 #define BLOCK_BUFFER_SIZE 100
@@ -32,10 +33,11 @@ class PixyNode
 public:
 	PixyNode();
 
-	void update();
 	void spin();
 
 private:
+	void update();
+	void setServo(const pixy_ros::Servo& msg) {pixy_rcs_set_position(msg.channel, msg.position);}
 
 	ros::NodeHandle node_handle_;
 	ros::NodeHandle private_node_handle_;
@@ -45,16 +47,27 @@ private:
 	tf::TransformBroadcaster tf_broadcaster_;
 
 	ros::Publisher publisher_;
+	ros::Subscriber servo_subscriber_;
 	std::string frame_id;
+
+	bool use_servos_;
+
 };
 
 PixyNode::PixyNode() :
-		node_handle_(), private_node_handle_("~")
+		node_handle_(), private_node_handle_("~"), use_servos_(false)
 {
 
 	private_node_handle_.param<std::string>(std::string("frame_id"), frame_id,
 			std::string("pixy_frame"));
 	private_node_handle_.param("rate", rate_, 10.0);
+
+    private_node_handle_.param("use_servos", use_servos_, false);
+
+    if(use_servos_)
+    {
+        servo_subscriber_ = node_handle_.subscribe("/pixy/servo_cmd", 20, &PixyNode::setServo, this);
+    }
 
 	int ret = pixy_init();
 	if (ret != 0)
@@ -63,10 +76,12 @@ PixyNode::PixyNode() :
 				__FUNCTION__, ret);
 		ROS_BREAK();
 	}
-    publisher_ = node_handle_.advertise<pixy_ros::PixyData>("/pixy", 50.0);
+    publisher_ = node_handle_.advertise<pixy_ros::PixyData>("/pixy/block_data", 50.0);
 
 
 }
+
+
 
 void PixyNode::update()
 {
@@ -106,6 +121,7 @@ void PixyNode::update()
 		ROS_INFO("Pixy read error.");
 	}
 }
+
 
 void PixyNode::spin()
 {
