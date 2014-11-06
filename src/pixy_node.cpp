@@ -42,8 +42,7 @@ private:
 	ros::NodeHandle node_handle_;
 	ros::NodeHandle private_node_handle_;
 
-	double rate_;
-
+	ros::Rate rate_;
 	tf::TransformBroadcaster tf_broadcaster_;
 
 	ros::Publisher publisher_;
@@ -55,12 +54,18 @@ private:
 };
 
 PixyNode::PixyNode() :
-		node_handle_(), private_node_handle_("~"), use_servos_(false)
+		node_handle_(),
+		private_node_handle_("~"),
+		use_servos_(false),
+		rate_(50.0)
 {
 
 	private_node_handle_.param<std::string>(std::string("frame_id"), frame_id,
 			std::string("pixy_frame"));
-	private_node_handle_.param("rate", rate_, 10.0);
+
+	double rate;
+	private_node_handle_.param("rate", rate, 50.0);
+	rate_=ros::Rate(rate);
 
     private_node_handle_.param("use_servos", use_servos_, false);
 
@@ -92,9 +97,10 @@ void PixyNode::update()
 	// Get blocks from Pixy //
 	int blocks_copied = pixy_get_blocks(BLOCK_BUFFER_SIZE, blocks);
 
+	pixy_ros::PixyData data;
+
 	if (blocks_copied > 0)
 	{
-		pixy_ros::PixyData data;
 		data.header.stamp = ros::Time::now();
 		for (int i = 0; i < blocks_copied; i++)
 		{
@@ -113,25 +119,28 @@ void PixyNode::update()
 
 			data.blocks.push_back(pixy_block);
 		}
-		// publish the message
-		publisher_.publish(data);
+
 	}
 	else if(blocks_copied < 0)
 	{
 		ROS_INFO("Pixy read error.");
+		return;
 	}
+
+	// publish the message
+	publisher_.publish(data);
 }
 
 
 void PixyNode::spin()
 {
-	ros::Rate r(50.0);
+
 	while (node_handle_.ok())
 	{
 		update();
 
 		ros::spinOnce();
-		r.sleep();
+		rate_.sleep();
 	}
 }
 

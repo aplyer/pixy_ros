@@ -2,7 +2,8 @@
 <launch>
 	
 	<node name="pixy_node" pkg="pixy_ros" type="pixy_node" ns="my_pixy" output="screen">
-		<param name="use_servos" value="true" />
+		<param name="use_servos" value="false" />
+		<param name="rate" value="50.0" />
 	</node>
 
 </launch>
