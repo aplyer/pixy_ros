@@ -66,7 +66,7 @@ PixyNode::PixyNode() :
 
     if(use_servos_)
     {
-        servo_subscriber_ = node_handle_.subscribe("/pixy/servo_cmd", 20, &PixyNode::setServo, this);
+        servo_subscriber_ = node_handle_.subscribe("servo_cmd", 20, &PixyNode::setServo, this);
     }
 
 	int ret = pixy_init();
@@ -76,7 +76,7 @@ PixyNode::PixyNode() :
 				__FUNCTION__, ret);
 		ROS_BREAK();
 	}
-    publisher_ = node_handle_.advertise<pixy_ros::PixyData>("/pixy/block_data", 50.0);
+    publisher_ = node_handle_.advertise<pixy_ros::PixyData>("block_data", 50.0);
 
 
 }
