@@ -21,9 +21,9 @@
 #include <ros/ros.h>
 #include <angles/angles.h>
 #include <tf/transform_broadcaster.h>
-#include <pixy_ros/PixyData.h>
-#include <pixy_ros/PixyBlock.h>
-#include <pixy_ros/Servo.h>
+#include <pixy_msgs/PixyData.h>
+#include <pixy_msgs/PixyBlock.h>
+#include <pixy_msgs/Servo.h>
 
 #include "pixy.h"
 #define BLOCK_BUFFER_SIZE 100
@@ -37,7 +37,7 @@ public:
 
 private:
 	void update();
-	void setServo(const pixy_ros::Servo& msg) {pixy_rcs_set_position(msg.channel, msg.position);}
+	void setServo(const pixy_msgs::Servo& msg) {pixy_rcs_set_position(msg.channel, msg.position);}
 
 	ros::NodeHandle node_handle_;
 	ros::NodeHandle private_node_handle_;
@@ -81,7 +81,7 @@ PixyNode::PixyNode() :
 				__FUNCTION__, ret);
 		ROS_BREAK();
 	}
-    publisher_ = node_handle_.advertise<pixy_ros::PixyData>("block_data", 50.0);
+    publisher_ = node_handle_.advertise<pixy_msgs::PixyData>("block_data", 50.0);
 
 
 }
@@ -97,14 +97,14 @@ void PixyNode::update()
 	// Get blocks from Pixy //
 	int blocks_copied = pixy_get_blocks(BLOCK_BUFFER_SIZE, blocks);
 
-	pixy_ros::PixyData data;
+	pixy_msgs::PixyData data;
 
 	if (blocks_copied > 0)
 	{
 		data.header.stamp = ros::Time::now();
 		for (int i = 0; i < blocks_copied; i++)
 		{
-			pixy_ros::PixyBlock pixy_block;
+			pixy_msgs::PixyBlock pixy_block;
 			pixy_block.type = blocks[i].type;
 			pixy_block.signature = blocks[i].signature;
 			pixy_block.roi.x_offset = blocks[i].x;

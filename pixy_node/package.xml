@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>pixy_ros</name>
+  <name>pixy_node</name>
   <version>1.0.0</version>
-  <description>The pixy_ros package</description>
+  <description>The pixy_node package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -41,11 +41,9 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>libusb-1.0-0-dev</build_depend>
-  <build_depend>message_generation</build_depend>
-  <build_depend>sensor_msgs</build_depend>
+  <build_depend>pixy_msgs</build_depend>
   <run_depend>libusb-1.0-0</run_depend>
-  <run_depend>message_runtime</run_depend>
-  <run_depend>sensor_msgs</run_depend>
+  <run_depend>pixy_msgs</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
