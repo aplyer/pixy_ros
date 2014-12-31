@@ -47,7 +47,6 @@ add_message_files(
    FILES
    PixyBlock.msg
    PixyData.msg
-   Servo.msg
  )
 
 ## Generate services in the 'srv' folder

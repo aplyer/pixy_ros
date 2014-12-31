@@ -23,7 +23,7 @@
 #include <tf/transform_broadcaster.h>
 #include <pixy_msgs/PixyData.h>
 #include <pixy_msgs/PixyBlock.h>
-#include <pixy_msgs/Servo.h>
+#include <std_msgs/Float32.h>
 
 #include "pixy.h"
 #define BLOCK_BUFFER_SIZE 100
@@ -37,7 +37,6 @@ public:
 
 private:
 	void update();
-	void setServo(const pixy_msgs::Servo& msg) {pixy_rcs_set_position(msg.channel, msg.position);}
 
 	ros::NodeHandle node_handle_;
 	ros::NodeHandle private_node_handle_;
@@ -46,10 +45,52 @@ private:
 	tf::TransformBroadcaster tf_broadcaster_;
 
 	ros::Publisher publisher_;
-	ros::Subscriber servo_subscriber_;
 	std::string frame_id;
 
+	class Servo
+	{
+	public:
+		Servo(uint8_t channel, double range_min=-M_PI, double range_max=M_PI) : channel_(channel){setRange(range_min, range_max);}
+		void subscribe(ros::NodeHandle& nh)
+		{
+			char topic[64];
+			sprintf(topic, "servo_%d_cmd", channel_);
+			sub_ = nh.subscribe(std::string(topic), 1, &PixyNode::Servo::set, this);
+		}
+
+		void set(const std_msgs::Float32ConstPtr& msg)
+		{
+
+			float value = msg->data;
+			value = (value > range_max_) ? range_max_ : value;
+			value = (value < range_min_) ? range_min_ : value;
+
+			//ROS_INFO("in=%f, out=%d", msg->data, (uint16_t) (value*scale_ + shift_));
+			pixy_rcs_set_position(channel_, (uint16_t) (value*scale_ + shift_));
+		}
+
+		void setRange(float range_min, float range_max)
+		{
+			range_min_ = range_min;
+			range_max_ = range_max;
+			scale_ = 1000.0/(range_max_ - range_min_);
+			shift_ = ((range_max_ + range_min_)/2.0) + 500.0;
+			ROS_INFO("scale: %f, shift %f", scale_, shift_);
+
+
+		}
+	private:
+		uint8_t channel_;
+		float range_min_, range_max_, scale_, shift_;
+		ros::Subscriber sub_;
+
+	};
+
+	Servo servo_0_;
+	Servo servo_1_;
 	bool use_servos_;
+	//ros::Subscriber servo_1_subscriber_;
+
 
 };
 
@@ -57,7 +98,9 @@ PixyNode::PixyNode() :
 		node_handle_(),
 		private_node_handle_("~"),
 		use_servos_(false),
-		rate_(50.0)
+		rate_(50.0),
+		servo_0_(0),
+		servo_1_(1)
 {
 
 	private_node_handle_.param<std::string>(std::string("frame_id"), frame_id,
@@ -71,7 +114,8 @@ PixyNode::PixyNode() :
 
     if(use_servos_)
     {
-        servo_subscriber_ = node_handle_.subscribe("servo_cmd", 20, &PixyNode::setServo, this);
+    	servo_0_.subscribe(node_handle_);
+    	servo_1_.subscribe(node_handle_);
     }
 
 	int ret = pixy_init();
@@ -85,8 +129,6 @@ PixyNode::PixyNode() :
 
 
 }
-
-
 
 void PixyNode::update()
 {
