@@ -112,6 +112,15 @@ PixyNode::PixyNode() :
 
     private_node_handle_.param("use_servos", use_servos_, false);
 
+    double servo_min, servo_max;
+    private_node_handle_.param("servo_0_min", servo_min, -M_PI);
+    private_node_handle_.param("servo_0_max", servo_max, M_PI);
+    servo_0_.setRange(servo_min, servo_max);
+
+    private_node_handle_.param("servo_1_min", servo_min, -M_PI);
+    private_node_handle_.param("servo_1_max", servo_max, M_PI);
+    servo_1_.setRange(servo_min, servo_max);
+
     if(use_servos_)
     {
     	servo_0_.subscribe(node_handle_);
