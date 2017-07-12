@@ -19,6 +19,14 @@
  */
 
 #include <ros/ros.h>
+
+#include <image_transport/image_transport.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
+
 #include <angles/angles.h>
 #include <tf/transform_broadcaster.h>
 #include <pixy_msgs/PixyData.h>
@@ -38,14 +46,18 @@ public:
 private:
 	void update();
 	void setServo(const pixy_msgs::Servo& msg) {pixy_rcs_set_position(msg.channel, msg.position);}
-
+	void interpolateBayer(uint16_t width, uint16_t x, uint16_t y, unsigned char *pixel, uint8_t *r, uint8_t *g, uint8_t *b);
+	cv::Mat renderBA81(uint8_t renderFlags, uint16_t width, uint16_t height, uint32_t frameLen, uint8_t *frame);
+	void getImage();
 	ros::NodeHandle node_handle_;
 	ros::NodeHandle private_node_handle_;
 
 	ros::Rate rate_;
 	tf::TransformBroadcaster tf_broadcaster_;
-
+	
 	ros::Publisher publisher_;
+	image_transport::ImageTransport it;
+	image_transport::Publisher pub_im_;
 	ros::Subscriber servo_subscriber_;
 	std::string frame_id;
 
@@ -55,14 +67,15 @@ private:
 
 PixyNode::PixyNode() :
 		node_handle_(),
+		it(node_handle_),
 		private_node_handle_("~"),
 		use_servos_(false),
 		rate_(50.0)
-{
+{	
 
 	private_node_handle_.param<std::string>(std::string("frame_id"), frame_id,
 			std::string("pixy_frame"));
-
+	pub_im_	= it.advertise("image_raw", 1);
 	double rate;
 	private_node_handle_.param("rate", rate, 50.0);
 	rate_=ros::Rate(rate);
@@ -129,6 +142,7 @@ void PixyNode::update()
 
 	// publish the message
 	publisher_.publish(data);
+	getImage();
 }
 
 
@@ -142,6 +156,105 @@ void PixyNode::spin()
 		ros::spinOnce();
 		rate_.sleep();
 	}
+}
+
+
+void PixyNode::getImage()
+{
+    unsigned char *pixels;
+    int32_t response, fourcc;
+    int8_t renderflags;
+    //int return_value, res;
+    int return_value;
+    uint16_t rwidth, rheight;
+    uint32_t  numPixels;
+    //uint16_t height,width;
+    //uint16_t mode;
+
+    return_value = pixy_command("run", END_OUT_ARGS, &response, END_IN_ARGS);
+    return_value = pixy_command("stop", END_OUT_ARGS, &response, END_IN_ARGS);
+
+    return_value = pixy_command("cam_getFrame",  // String id for remote procedure
+                                 0x01, 0x21,      // mode
+                                 0x02,   0,        // xoffset
+                                 0x02,   0,         // yoffset
+                                 0x02, 320,       // width
+                                 0x02, 200,       // height
+                                 0,            // separator
+                                 &response, &fourcc, &renderflags, &rwidth, &rheight, &numPixels, &pixels, 0);
+
+    cv::Mat result = renderBA81(renderflags,rwidth,rheight,numPixels,pixels);
+
+	cv_bridge::CvImage im;
+	im.image = result;
+	im.encoding = sensor_msgs::image_encodings::BGR8;
+	im.header.frame_id = "pixy_frame";	
+	im.header.stamp = ros::Time::now();
+	
+     pub_im_.publish(im.toImageMsg());
+}
+
+inline void PixyNode::interpolateBayer(uint16_t width, uint16_t x, uint16_t y, uint8_t *pixel, uint8_t *r, uint8_t *g, uint8_t * b)
+{
+    if (y&1)
+    {
+        if (x&1)
+        {
+            *r = *pixel;
+            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
+            *b = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
+        }
+        else
+        {
+            *r = (*(pixel-1)+*(pixel+1))>>1;
+            *g = *pixel;
+            *b = (*(pixel-width)+*(pixel+width))>>1;
+        }
+    }
+    else
+    {
+        if (x&1)
+        {
+            *r = (*(pixel-width)+*(pixel+width))>>1;
+            *g = *pixel;
+            *b = (*(pixel-1)+*(pixel+1))>>1;
+        }
+        else
+        {
+            *r = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
+            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
+            *b = *pixel;
+        }
+    }
+
+}
+
+cv::Mat PixyNode::renderBA81(uint8_t renderFlags, uint16_t width, uint16_t height, uint32_t frameLen, uint8_t *frame)
+{
+    uint16_t x, y;
+    uint8_t r, g, b;
+    cv::Mat imageRGB;
+
+    frame += width;
+    uchar data[3*((height-2)*(width-2))];
+
+    uint m = 0;
+    for (y=1; y<height-1; y++)
+    {
+        frame++;
+        for (x=1; x<width-1; x++, frame++)
+        {
+            interpolateBayer(width, x, y, frame, &r, &g, &b);
+            data[m++] = b;
+            data[m++] = g;
+            data[m++] = r;
+        }
+        frame++;
+    }
+
+    imageRGB =  cv::Mat(height - 2,width -2, CV_8UC3, data);
+
+    return imageRGB;
 }
 
 int main(int argc, char** argv)
